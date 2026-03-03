@@ -4,120 +4,128 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>World Tap Championship - Global Clicker Game</title>
-    <meta name="description" content="Represent your country in the most epic global competition! Tap to win the World Tap Championship. Track real-time ranking and player progress worldwide.">
-    <meta name="keywords" content="world tap championship, clicker game, multiplayer tap game, country leaderboard, global competition">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' ws: wss:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
-
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --primary: #38bdf8; --accent: #22c55e; }
-        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: #f8fafc; line-height: 1.6; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: #f8fafc; }
         .container { max-width: 800px; margin: 0 auto; padding: 20px; }
         .online-status { background: var(--accent); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
-        .card { background: var(--card); border-radius: 16px; padding: 25px; margin-bottom: 20px; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); }
-        .country-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; max-height: 300px; overflow-y: auto; padding: 10px; background: #0f172a; border-radius: 10px; }
+        .card { background: var(--card); border-radius: 16px; padding: 25px; margin-bottom: 20px; border: 1px solid #334155; }
+        .country-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; max-height: 300px; overflow-y: auto; padding: 10px; background: #0f172a; border-radius: 10px; }
         .btn-country { background: #334155; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
         .btn-country:hover { background: var(--primary); }
         #tapButton { width: 200px; height: 200px; border-radius: 50%; font-size: 40px; font-weight: 800; background: linear-gradient(145deg, #22c55e, #16a34a); border: 8px solid #14532d; color: white; cursor: pointer; box-shadow: 0 10px 0 #14532d; transition: 0.05s; margin: 20px auto; display: block;}
         #tapButton:active { transform: translateY(6px); box-shadow: 0 4px 0 #14532d; }
-        .counter-display { font-size: 2.5rem; font-weight: 900; color: var(--primary); margin: 15px 0; letter-spacing: 2px; text-align: center; }
+        .counter-display { font-size: 2.5rem; font-weight: 900; color: var(--primary); margin: 15px 0; text-align: center; }
         #rankingList { list-style: none; padding: 0; }
         .rank-item { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #334155; }
         .prog-val { color: var(--primary); font-weight: bold; }
-        .seo-section { margin-top: 50px; text-align: left; font-size: 0.9rem; color: #94a3b8; border-top: 1px solid #334155; padding-top: 20px; }
-        .seo-section h3 { color: #f8fafc; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h1 style="margin:0;">🌍 World Tap</h1>
+        <h1>🌍 World Tap</h1>
         <span class="online-status">● Online: <span id="onlineCount">0</span></span>
     </header>
 
     <div id="selection" class="card">
         <h2>Select Your Country</h2>
-        <p>Join the battle! Pick your nation to start tapping.</p>
         <div id="countryGrid" class="country-grid">Loading countries...</div>
     </div>
 
     <div id="game" class="card" style="display: none;">
         <h2 id="myCountryLabel" style="text-align:center;"></h2>
-        <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; text-align:center;">Remaining Taps</div>
         <div id="counter" class="counter-display">---</div>
         <button id="tapButton">TAP!</button>
+        <p style="text-align:center;"><button onclick="changeCountry()" style="background:none; border:none; color:#94a3b8; cursor:pointer; text-decoration:underline;">Change Country</button></p>
     </div>
 
     <div class="card">
         <h3>🏆 Global Leaderboard (Top 15)</h3>
         <ul id="rankingList"></ul>
     </div>
-
-    <footer class="seo-section">
-        <h3>How to Play World Tap Championship</h3>
-        <p>Choose your country and tap the button. Every tap helps your nation reach the 100% goal based on population stats.</p>
-        <p>© 2026 World Tap Championship - All rights reserved.</p>
-    </footer>
 </div>
 
 <script>
-    // 1. Definiamo le variabili senza assegnarle subito
     let socket;
     let myCountry = localStorage.getItem("chosenCountry");
 
     function connect() {
-        // 2. Determiniamo l'URL corretto (WSS per Render, WS per locale)
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
         const SERVER_URL = `${protocol}://${window.location.host}`;
-        
-        // 3. Creiamo la connessione
         socket = new WebSocket(SERVER_URL);
 
         socket.onopen = () => {
-            console.log("Connected to Server!");
-            // Se l'utente ha già una nazione, chiede subito il valore attuale
-            if(myCountry) {
-                socket.send(JSON.stringify({type: "requestSync", country: myCountry}));
-            }
+            if(myCountry) socket.send(JSON.stringify({type: "requestSync", country: myCountry}));
         };
 
         socket.onmessage = (e) => {
             const data = JSON.parse(e.data);
-            
             if(data.type === "initData") {
                 renderCountries(data.countries);
                 renderRanking(data.ranking);
                 document.getElementById("onlineCount").textContent = data.online;
                 if(myCountry) showGame();
             }
-
-            if(data.type === "onlineCount") {
-                document.getElementById("onlineCount").textContent = data.count;
-            }
-
-            // Sincronizzazione iniziale del counter
+            if(data.type === "onlineCount") document.getElementById("onlineCount").textContent = data.count;
             if(data.type === "sync" && data.countryName === myCountry) {
                 document.getElementById("counter").textContent = data.remaining.toLocaleString();
             }
-
             if(data.type === "update") {
                 renderRanking(data.ranking);
-                if(data.countryName === myCountry) {
-                    document.getElementById("counter").textContent = data.newRemaining.toLocaleString();
-                }
+                if(data.countryName === myCountry) document.getElementById("counter").textContent = data.newRemaining.toLocaleString();
             }
         };
 
-        // Riconnessione automatica se cade la linea
-        socket.onclose = () => {
-            console.log("Disconnected. Retrying...");
-            setTimeout(connect, 2000);
-        };
+        socket.onclose = () => setTimeout(connect, 2000);
     }
 
-    // ... (restanti funzioni renderCountries, showGame, renderRanking) ...
+    function renderCountries(list) {
+        const grid = document.getElementById("countryGrid");
+        grid.innerHTML = "";
+        list.forEach(c => {
+            const btn = document.createElement("button");
+            btn.className = "btn-country";
+            btn.textContent = c.name;
+            btn.onclick = () => {
+                myCountry = c.name;
+                localStorage.setItem("chosenCountry", c.name);
+                socket.send(JSON.stringify({type: "selectCountry", country: c.name}));
+                showGame();
+            };
+            grid.appendChild(btn);
+        });
+    }
 
-    // 4. Avviamo la connessione
+    function renderRanking(ranking) {
+        const list = document.getElementById("rankingList");
+        list.innerHTML = "";
+        ranking.forEach((item, index) => {
+            const li = document.createElement("li");
+            li.className = "rank-item";
+            li.innerHTML = `<span>#${index + 1} ${item.country}</span> <span class="prog-val">${item.progress}%</span>`;
+            list.appendChild(li);
+        });
+    }
+
+    function showGame() {
+        document.getElementById("selection").style.display = "none";
+        document.getElementById("game").style.display = "block";
+        document.getElementById("myCountryLabel").textContent = "Representing: " + myCountry;
+    }
+
+    function changeCountry() {
+        localStorage.removeItem("chosenCountry");
+        location.reload();
+    }
+
+    document.getElementById("tapButton").onclick = () => {
+        if(socket && socket.readyState === WebSocket.OPEN && myCountry) {
+            socket.send(JSON.stringify({type: "tap", country: myCountry}));
+        }
+    };
+
     connect();
 </script>
 </body>
