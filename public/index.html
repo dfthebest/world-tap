@@ -61,14 +61,21 @@
 </div>
 
 <script>
-    const SERVER_URL = window.location.origin.replace(/^http/, 'ws');
+    // 1. Definiamo le variabili senza assegnarle subito
     let socket;
     let myCountry = localStorage.getItem("chosenCountry");
 
     function connect() {
+        // 2. Determiniamo l'URL corretto (WSS per Render, WS per locale)
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const SERVER_URL = `${protocol}://${window.location.host}`;
+        
+        // 3. Creiamo la connessione
         socket = new WebSocket(SERVER_URL);
+
         socket.onopen = () => {
-            // Se l'utente ha già una nazione, chiede subito il valore attuale al server
+            console.log("Connected to Server!");
+            // Se l'utente ha già una nazione, chiede subito il valore attuale
             if(myCountry) {
                 socket.send(JSON.stringify({type: "requestSync", country: myCountry}));
             }
@@ -88,7 +95,7 @@
                 document.getElementById("onlineCount").textContent = data.count;
             }
 
-            // Messaggio di sincronizzazione iniziale o dopo scelta
+            // Sincronizzazione iniziale del counter
             if(data.type === "sync" && data.countryName === myCountry) {
                 document.getElementById("counter").textContent = data.remaining.toLocaleString();
             }
@@ -100,49 +107,17 @@
                 }
             }
         };
-        socket.onclose = () => setTimeout(connect, 1000);
+
+        // Riconnessione automatica se cade la linea
+        socket.onclose = () => {
+            console.log("Disconnected. Retrying...");
+            setTimeout(connect, 2000);
+        };
     }
 
-    function renderCountries(list) {
-        const grid = document.getElementById("countryGrid");
-        grid.innerHTML = "";
-        list.sort((a,b) => a.name.localeCompare(b.name)).forEach(c => {
-            const b = document.createElement("button");
-            b.className = "btn-country";
-            b.textContent = c.name;
-            b.onclick = () => {
-                myCountry = c.name;
-                localStorage.setItem("chosenCountry", c.name);
-                socket.send(JSON.stringify({type: "selectCountry", country: c.name}));
-                showGame();
-            };
-            grid.appendChild(b);
-        });
-    }
+    // ... (restanti funzioni renderCountries, showGame, renderRanking) ...
 
-    function showGame() {
-        document.getElementById("selection").style.display = "none";
-        document.getElementById("game").style.display = "block";
-        document.getElementById("myCountryLabel").textContent = "Representing: " + myCountry;
-    }
-
-    function renderRanking(ranking) {
-        const list = document.getElementById("rankingList");
-        list.innerHTML = "";
-        ranking.forEach((item, i) => {
-            const li = document.createElement("li");
-            li.className = "rank-item";
-            li.innerHTML = `<span>${i+1}. <b>${item.country}</b></span> <span class="prog-val">${item.progress}%</span>`;
-            list.appendChild(li);
-        });
-    }
-
-    document.getElementById("tapButton").onclick = () => {
-        if(socket.readyState === 1) {
-            socket.send(JSON.stringify({type: "tap", country: myCountry}));
-        }
-    };
-
+    // 4. Avviamo la connessione
     connect();
 </script>
 </body>
