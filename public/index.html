@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Tap Championship</title>
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: white; text-align: center; }
+        .container { padding: 20px; max-width: 800px; margin: auto; }
+        h1 { color: #38bdf8; text-shadow: 0 0 10px rgba(56,189,248,0.5); }
+        #selection, #game { background: #1e293b; padding: 20px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); margin-top: 20px; }
+        .country-btn { margin: 5px; padding: 12px 18px; font-size: 14px; cursor: pointer; border: none; border-radius: 8px; background: #334155; color: white; transition: 0.3s; }
+        .country-btn:hover { background: #38bdf8; }
+        #tapButton { width: 200px; height: 200px; border-radius: 50%; font-size: 32px; font-weight: bold; background: linear-gradient(145deg, #22c55e, #16a34a); border: 8px solid #14532d; color: white; cursor: pointer; margin-top: 20px; box-shadow: 0 10px 0 #14532d; active: transform: translateY(5px); active: box-shadow: 0 5px 0 #14532d; }
+        .counter { font-size: 42px; font-weight: bold; color: #f87171; margin: 20px 0; font-family: 'Courier New', monospace; }
+        #leaderboard { margin-top: 40px; background: #1e293b; padding: 20px; border-radius: 15px; }
+        #ranking { list-style: none; padding: 0; text-align: left; }
+        #ranking li { padding: 10px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🌍 World Tap Championship</h1>
+
+    <div id="selection">
+        <h2>Scegli il tuo paese</h2>
+        <p>Attenzione: la scelta è definitiva per questo campionato!</p>
+        <div id="countries">Caricamento nazioni...</div>
+    </div>
+
+    <div id="game" style="display:none;">
+        <h2 id="chosenCountry"></h2>
+        <div class="counter">
+            RIMANENTI: <span id="counterValue">--</span>
+        </div>
+        <button id="tapButton">TAP!</button>
+    </div>
+
+    <div id="leaderboard">
+        <h2>🏆 Classifica Mondiale (Tap Rimanenti)</h2>
+        <ul id="ranking"></ul>
+    </div>
+</div>
+
+<script>
+// Configurazione: In produzione, sostituisci 'localhost' con l'IP del tuo server
+const SERVER_URL = window.location.origin.replace(/^http/, 'ws'); 
+let socket;
+let selectedCountry = localStorage.getItem("chosenCountry");
+
+function connect() {
+    socket = new WebSocket(SERVER_URL);
+
+    socket.onopen = () => {
+        console.log("Connesso al Campionato!");
+        if (selectedCountry) {
+            socket.send(JSON.stringify({ type: "restoreSession", country: selectedCountry }));
+            showGameUI();
+        }
+    };
+
+    socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "initData") {
+            renderCountries(data.countries);
+            renderLeaderboard(data.ranking);
+        }
+
+        if (data.type === "update") {
+            updateUI(data.ranking);
+        }
+
+        if (data.type === "winner") {
+            alert("🏆 IL CAMPIONATO È FINITO! Vincitore: " + data.country);
+            localStorage.removeItem("chosenCountry");
+            location.reload();
+        }
+    };
+}
+
+function renderCountries(countries) {
+    const div = document.getElementById("countries");
+    div.innerHTML = "";
+    countries.forEach(c => {
+        const btn = document.createElement("button");
+        btn.textContent = c.name;
+        btn.className = "country-btn";
+        btn.onclick = () => selectCountry(c.name);
+        div.appendChild(btn);
+    });
+}
+
+function selectCountry(name) {
+    selectedCountry = name;
+    localStorage.setItem("chosenCountry", name);
+    socket.send(JSON.stringify({ type: "selectCountry", country: name }));
+    showGameUI();
+}
+
+function showGameUI() {
+    document.getElementById("selection").style.display = "none";
+    document.getElementById("game").style.display = "block";
+    document.getElementById("chosenCountry").textContent = "Stai lottando per: " + selectedCountry;
+}
+
+function updateUI(ranking) {
+    renderLeaderboard(ranking);
+    const myData = ranking.find(r => r.country === selectedCountry);
+    if (myData) {
+        document.getElementById("counterValue").textContent = myData.remaining.toLocaleString();
+    }
+}
+
+function renderLeaderboard(ranking) {
+    const list = document.getElementById("ranking");
+    list.innerHTML = "";
+    // Ordiniamo per chi ha meno tap rimanenti (più vicino alla vittoria)
+    ranking.sort((a, b) => a.remaining - b.remaining).forEach((item, index) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<span>${index + 1}. ${item.country}</span> <b>${item.remaining.toLocaleString()}</b>`;
+        list.appendChild(li);
+    });
+}
+
+document.getElementById("tapButton").onclick = () => {
+    socket.send(JSON.stringify({ type: "tap", country: selectedCountry }));
+};
+
+connect();
+</script>
+</body>
+</html>
