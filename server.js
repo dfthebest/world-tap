@@ -1,10 +1,10 @@
 const express = require('express');
 const { WebSocketServer } = require('ws');
 const path = require('path');
-const http = require('http'); // 1. Importa il modulo HTTP nativo
+const http = require('http');
 
 const app = express();
-const server = http.createServer(app); // 2. Crea il server usando Express
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
 // Database Popolazione
@@ -20,7 +20,6 @@ let countries = Object.keys(worldPop).map(name => ({
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 3. Importante: Inizializza WebSocketServer sul server HTTP
 const wss = new WebSocketServer({ server });
 
 function getSecretRanking() {
@@ -83,5 +82,4 @@ wss.on('connection', (ws) => {
     ws.on('close', () => broadcast({ type: "onlineCount", count: wss.clients.size }));
 });
 
-// 4. Avvia il server HTTP (non app.listen)
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
