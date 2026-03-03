@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>World Tap Championship - Global Clicker Game</title>
-    
     <meta name="description" content="Represent your country in the most epic global competition! Tap to win the World Tap Championship. Track real-time ranking and player progress worldwide.">
     <meta name="keywords" content="world tap championship, clicker game, multiplayer tap game, country leaderboard, global competition">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' ws: wss:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
@@ -13,28 +12,17 @@
         :root { --bg: #0f172a; --card: #1e293b; --primary: #38bdf8; --accent: #22c55e; }
         body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: #f8fafc; line-height: 1.6; }
         .container { max-width: 800px; margin: 0 auto; padding: 20px; }
-        
-        /* UI Elements */
         .online-status { background: var(--accent); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
         .card { background: var(--card); border-radius: 16px; padding: 25px; margin-bottom: 20px; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); }
-        
-        /* Grid & Buttons */
         .country-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; max-height: 300px; overflow-y: auto; padding: 10px; background: #0f172a; border-radius: 10px; }
         .btn-country { background: #334155; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
         .btn-country:hover { background: var(--primary); }
-        
-        /* Game Area */
-        #tapButton { width: 200px; height: 200px; border-radius: 50%; font-size: 40px; font-weight: 800; background: linear-gradient(145deg, #22c55e, #16a34a); border: 8px solid #14532d; color: white; cursor: pointer; box-shadow: 0 10px 0 #14532d; transition: 0.05s; }
+        #tapButton { width: 200px; height: 200px; border-radius: 50%; font-size: 40px; font-weight: 800; background: linear-gradient(145deg, #22c55e, #16a34a); border: 8px solid #14532d; color: white; cursor: pointer; box-shadow: 0 10px 0 #14532d; transition: 0.05s; margin: 20px auto; display: block;}
         #tapButton:active { transform: translateY(6px); box-shadow: 0 4px 0 #14532d; }
-        .counter-display { font-size: 2.5rem; font-weight: 900; color: var(--primary); margin: 15px 0; letter-spacing: 2px; }
-
-        /* Leaderboard */
+        .counter-display { font-size: 2.5rem; font-weight: 900; color: var(--primary); margin: 15px 0; letter-spacing: 2px; text-align: center; }
         #rankingList { list-style: none; padding: 0; }
         .rank-item { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #334155; }
-        .rank-item:last-child { border: none; }
         .prog-val { color: var(--primary); font-weight: bold; }
-
-        /* Footer SEO Section */
         .seo-section { margin-top: 50px; text-align: left; font-size: 0.9rem; color: #94a3b8; border-top: 1px solid #334155; padding-top: 20px; }
         .seo-section h3 { color: #f8fafc; }
     </style>
@@ -54,8 +42,8 @@
     </div>
 
     <div id="game" class="card" style="display: none;">
-        <h2 id="myCountryLabel"></h2>
-        <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase;">Remaining Taps</div>
+        <h2 id="myCountryLabel" style="text-align:center;"></h2>
+        <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; text-align:center;">Remaining Taps</div>
         <div id="counter" class="counter-display">---</div>
         <button id="tapButton">TAP!</button>
     </div>
@@ -67,10 +55,7 @@
 
     <footer class="seo-section">
         <h3>How to Play World Tap Championship</h3>
-        <p>Welcome to the <strong>World Tap Championship</strong>, the ultimate global clicking game. The rules are simple: choose your country and tap the button as fast as you can. Every tap counts towards your nation's total population goal (Population × 5000).</p>
-        
-        <h3>About the Competition</h3>
-        <p>This is a real-time multiplayer experiment. Thousands of players around the world are tapping simultaneously to make their country the first to reach 100% completion. Who will win the world title? It depends on your speed and coordination!</p>
+        <p>Choose your country and tap the button. Every tap helps your nation reach the 100% goal based on population stats.</p>
         <p>© 2026 World Tap Championship - All rights reserved.</p>
     </footer>
 </div>
@@ -82,18 +67,37 @@
 
     function connect() {
         socket = new WebSocket(SERVER_URL);
+        socket.onopen = () => {
+            // Se l'utente ha già una nazione, chiede subito il valore attuale al server
+            if(myCountry) {
+                socket.send(JSON.stringify({type: "requestSync", country: myCountry}));
+            }
+        };
+
         socket.onmessage = (e) => {
             const data = JSON.parse(e.data);
+            
             if(data.type === "initData") {
                 renderCountries(data.countries);
                 renderRanking(data.ranking);
                 document.getElementById("onlineCount").textContent = data.online;
                 if(myCountry) showGame();
             }
-            if(data.type === "onlineCount") document.getElementById("onlineCount").textContent = data.count;
+
+            if(data.type === "onlineCount") {
+                document.getElementById("onlineCount").textContent = data.count;
+            }
+
+            // Messaggio di sincronizzazione iniziale o dopo scelta
+            if(data.type === "sync" && data.countryName === myCountry) {
+                document.getElementById("counter").textContent = data.remaining.toLocaleString();
+            }
+
             if(data.type === "update") {
                 renderRanking(data.ranking);
-                if(data.countryName === myCountry) document.getElementById("counter").textContent = data.newRemaining.toLocaleString();
+                if(data.countryName === myCountry) {
+                    document.getElementById("counter").textContent = data.newRemaining.toLocaleString();
+                }
             }
         };
         socket.onclose = () => setTimeout(connect, 1000);
@@ -134,7 +138,9 @@
     }
 
     document.getElementById("tapButton").onclick = () => {
-        if(socket.readyState === 1) socket.send(JSON.stringify({type: "tap", country: myCountry}));
+        if(socket.readyState === 1) {
+            socket.send(JSON.stringify({type: "tap", country: myCountry}));
+        }
     };
 
     connect();
